@@ -366,14 +366,14 @@ function check(id) {
 
 function toggleDark(bool) {
 	style.dark = bool ?? !style.dark;
-	document.body.className = style.dark ? 'dark' : '';
+	$(document.body).toggleClass('light', !style.dark)
 	style.baseColour = style.dark ? '#aaa' : '#808080';
 	style.starColour = style.dark ? '#fff' : '#000';
 	draw();
 }
 </script>
 <style>
-/*.dark {background-color:#444;color:#eee;}*/
+.light {background-color:#fff;color:#000;}
 #canvas, #controls {float:left;margin:2em;}
 form > ul > li {margin-top:0.5em;}
 ul:not(.bullets) {list-style-type:none;padding-left:0;}
