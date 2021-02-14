@@ -1,4 +1,5 @@
 ---
+layout: default
 ---
 
 <html>
@@ -213,8 +214,7 @@ function circle(x, y, r) {
 
 function draw() {
 	ctx.save();
-	ctx.fillStyle = style.backgroundColour;
-	ctx.fillRect(0, 0, style.width, style.height);
+	ctx.clearRect(0, 0, style.width, style.height);
 	ctx.translate(style.width/2, style.height/2);
 	drawBase();
 	drawStar();
@@ -367,7 +367,6 @@ function check(id) {
 function toggleDark(bool) {
 	style.dark = bool ?? !style.dark;
 	document.body.className = style.dark ? 'dark' : '';
-	style.backgroundColour = style.dark ? '#444' : '#fff';
 	style.baseColour = style.dark ? '#aaa' : '#808080';
 	style.starColour = style.dark ? '#fff' : '#000';
 	draw();
