@@ -1,3 +1,7 @@
+---
+layout: wiki
+---
+
 # [Star](../)
 
 A tool for getting the SVG coordinates of arbitrary isotoxal [star polygons](https://en.wikipedia.org/wiki/Star_polygon). It may be useful if you (like me) like to edit or newly hand-code SVGs outside of a graphical interface like Inkscape or Illustrator. The output string can be pasted into the `d=""` attribute of an [SVG path element](https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths).
