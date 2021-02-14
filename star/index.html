@@ -1,0 +1,445 @@
+<html>
+<head>
+<meta charset="UTF-8"/>
+<script src="/assets/js/jquery.min.js"></script>
+<script>
+let data = {}, style = {}, displayR, ctx;
+
+function start() {
+	const canvas = document.getElementById('canvas');
+	ctx = canvas.getContext('2d');
+	style.width = canvas.width; style.height = canvas.height;
+	displayR = Math.min(style.width, style.height)/3;
+	update(false);
+	toggleDark(true);
+}
+
+function update(redraw=true) {
+	inputs();
+	calculateData();
+	fillMeasures();
+	if (redraw) {window.requestAnimationFrame(draw);}
+}
+
+function inputs() {
+	data.shapetype = document.querySelector('input[name=shapetype]:checked').value;
+	data.points = Number(document.getElementById('points').value);
+	data.density = Number(document.getElementById('density').value);
+	data.hull = document.getElementById('hull').checked;
+	data.intAngle = Number(document.getElementById('intAngle').value)*Math.PI/180;
+	data.fixratio = document.getElementById('fixratio').checked;
+	data.ratio = Number(document.getElementById('ratio').value);
+	data.basesizetype = document.querySelector('input[name=basesizetype]:checked').value;
+	data.outerR = Number(document.getElementById('outerR').value);
+	data.innerR = Number(document.getElementById('innerR').value);
+	data.tangentR = Number(document.getElementById('tangentR').value);
+	data.width = Number(document.getElementById('width').value);
+	data.height = Number(document.getElementById('height').value);
+	data.posX = Number(document.getElementById('posX').value);
+	data.posY = Number(document.getElementById('posY').value);
+	data.postype = document.querySelector('input[name=postype]:checked').value;
+	data.rotation = Number(document.getElementById('rotation').value)*Math.PI/180;
+	data.coordtype = document.querySelector('input[name=coordtype]:checked').value;
+	data.digits = Number(document.getElementById('digits').value);
+	data.box = null;
+	greyInputs();
+}
+
+function greyInputs() {
+	$('#density' ).toggleClass('inactive', data.shapetype!='starpoly');
+	$('#intAngle').toggleClass('inactive', data.shapetype!='internal');
+	$('#ratio'   ).toggleClass('inactive', !(data.shapetype=='radii'&&data.fixratio));
+	$('#outerR'  ).toggleClass('inactive', !(data.basesizetype=='outer'||data.shapetype=='radii'&&!data.fixratio&&(data.basesizetype=='inner'||data.basesizetype=='tangent')));
+	$('#innerR'  ).toggleClass('inactive', !(data.basesizetype=='inner'||data.shapetype=='radii'&&!data.fixratio&&data.basesizetype!='tangent'));
+	$('#tangentR').toggleClass('inactive', data.basesizetype!='tangent');
+	$('#width'   ).toggleClass('inactive', data.basesizetype!='width');
+	$('#height'  ).toggleClass('inactive', data.basesizetype!='height');
+}
+
+function fillMeasures() {
+	$('.actual').text('');
+	$('#intAngle.inactive + .actual').text(coordStr(data.intAngle*180/Math.PI)+'°');
+	$('#ratio.inactive + .actual'   ).text(coordStr(data.ratio));
+	$('#outerR.inactive + .actual'  ).text(coordStr(data.outerR));
+	$('#innerR.inactive + .actual'  ).text(coordStr(data.innerR));
+	$('#tangentR.inactive + .actual').text(coordStr(data.tangentR));
+	$('#width.inactive + .actual'   ).text(coordStr(data.outerR*(data.box[1]-data.box[3])));
+	$('#height.inactive + .actual'  ).text(coordStr(data.outerR*(data.box[2]-data.box[0])));
+}
+
+function getStarPolyRadiusRatio() {
+	// Calculate radius ratio using triangles based on connected points and center
+	let halfOuterInternalAngle = (Math.PI - data.pointAngle*data.density)/2;
+	let halfInnerInternalAngle = Math.PI - halfOuterInternalAngle - data.pointAngle/2;
+	return 1/Math.sin(halfInnerInternalAngle)*Math.sin(halfOuterInternalAngle);
+}
+
+function getIntAngle(pointAngle, ratio) {
+		let edge = Math.sqrt(1 + ratio**2 - 2*ratio*Math.cos(pointAngle/2)) // cosine rule
+		return 2*Math.asin(Math.sin(pointAngle/2)*ratio/edge) // sine rule
+}
+
+function getUnitStarBoundingBox(includeInner=false) {
+	// top, right, bottom, left
+	let box = [];
+	for (let i=0; i<4; i++) { // Find furthest protrusion in each direction
+		let axisAngle = i*Math.PI/2;
+		let closestAngle = Math.round(axisAngle/data.pointAngle)*data.pointAngle;
+		let furthestCoord = -Math[i%2==0?'cos':'sin'](-closestAngle); // cos for top and bottom; sin for left and right
+		if (includeInner) { // Check if inner point sticks out further
+			let closestInnerAngle = (Math.round(axisAngle/data.pointAngle-0.5)+0.5)*data.pointAngle;
+			let furthestInnerCoord = -data.innerR/data.outerR*Math[i%2==0?'cos':'sin'](-closestInnerAngle);
+			if (Math.abs(furthestInnerCoord)>Math.abs(furthestCoord)) {
+				furthestCoord = furthestInnerCoord;
+			}
+		}
+		box.push(furthestCoord);
+	}
+	return box;
+}
+
+function rotateVector(v, a) {
+	return [
+	  v[0]*Math.cos(a) - v[1]*Math.sin(a),
+	  v[0]*Math.sin(a) + v[1]*Math.cos(a)
+	];
+}
+
+function coordStr(c) {
+	return (c.toFixed(data.digits)-0).toString();
+}
+
+function calculateData() {
+	data.pointAngle = 2*Math.PI/data.points;
+	data.isStarPoly = data.shapetype=='polygon' || data.shapetype=='starpoly'&&!data.hull;
+	// Polygon = star polygon of density 1
+	if (data.shapetype=='polygon') {
+		data.density = 1;
+	}
+	// Map density between 0 and points/2
+	if (data.density<0 || data.density>data.points/2) {
+		data.density = (data.density%data.points+data.points)%data.points;
+		if (data.density>data.points/2) {data.density = data.points-data.density;}
+	}
+	// Calculate other radius based on radius ratio (if fixed)
+	if (data.shapetype=='polygon' || data.shapetype=='starpoly') {
+		data.fixratio = true;
+		data.ratio = getStarPolyRadiusRatio();
+	} else if (data.shapetype=='internal') {
+		data.fixratio = true;
+		// Triangle centre-outer-inner & sine rule
+		data.ratio = Math.sin(data.intAngle/2)/Math.sin(Math.PI-data.intAngle/2-data.pointAngle/2);
+	} else if (data.shapetype=='rhombic') {
+		data.fixratio = true;
+		data.ratio = Math.sin(data.pointAngle/2)/Math.sin(Math.PI-2*data.pointAngle/2);
+	}
+	if (data.fixratio) {
+		if (data.shapetype!='internal') {
+			data.intAngle = getIntAngle(data.pointAngle, data.ratio);
+		}
+		// Replace secondary radii
+		if (data.basesizetype=='inner') {
+			data.outerR = data.innerR/data.ratio;
+			data.tangentR = data.outerR*Math.sin(data.intAngle/2);
+		} else if (data.basesizetype=='tangent') {
+			data.outerR = data.tangentR/Math.sin(data.intAngle/2);
+			data.innerR = data.outerR*data.ratio;
+		} else { // width or height (corrected below) or outer
+			data.innerR = data.outerR*data.ratio;
+			data.tangentR = data.outerR*Math.sin(data.intAngle/2);
+		}
+	} else {
+		if (data.basesizetype=='tangent') { // Tangent & outer
+			data.intAngle = 2*Math.asin(data.tangentR/data.outerR);
+			data.innerR = data.tangentR/Math.cos((Math.PI/2-data.intAngle/2)-data.pointAngle/2);
+			data.ratio = data.innerR/data.outerR;
+		} else { // Inner & outer
+			data.ratio = data.innerR/data.outerR;
+			data.intAngle = getIntAngle(data.pointAngle, data.ratio);
+			data.tangentR = data.outerR*Math.sin(data.intAngle/2);
+		}
+	}
+	// Calculate bounding box & resize according to specified size
+	data.box = getUnitStarBoundingBox(data.fixratio); // only count inner vertices for fixed shapes
+	if (data.basesizetype=='width' || data.basesizetype=='height') {
+		if (data.basesizetype=='width') {
+			data.outerR = data.width/(data.box[1]-data.box[3]);
+		} else {
+			data.outerR = data.height/(data.box[2]-data.box[0]);
+		}
+		// Scale innerR along if fixed ratio
+		if (data.fixratio) {
+			data.innerR = data.outerR*data.ratio;
+		}
+	}
+	// Find centre
+	data.posOffset = [0, 0];
+	if (data.postype=='vertex') {
+		data.posOffset = [0, -1];
+	} else if (data.postype=='box') {
+		data.posOffset = [
+		  (data.box[1]+data.box[3])/2,
+		  (data.box[2]+data.box[0])/2
+		];
+	}
+	data.posOffset = rotateVector(data.posOffset, data.rotation);
+	data.posX -= data.outerR*data.posOffset[0];
+	data.posY -= data.outerR*data.posOffset[1];
+}
+
+function addVertexNode(path, angle, radius=null, nodeI) {
+	if (radius==null) {radius = data.outerR;}
+	ctx[nodeI==0 ? 'moveTo' : 'lineTo'](radius/data.outerR*displayR*Math.sin(angle),
+	                                   -radius/data.outerR*displayR*Math.cos(angle));
+	path.push([data.posX+radius*Math.sin(angle),
+	           data.posY-radius*Math.cos(angle)]);
+}
+
+function line(x1, y1, x2, y2) {
+	ctx.beginPath();
+	ctx.moveTo(x1, y1);
+	ctx.lineTo(x2, y2);
+	ctx.stroke();
+}
+
+function circle(x, y, r) {
+	ctx.beginPath();
+	ctx.arc(x, y, r, 0, 2*Math.PI);
+	ctx.stroke();
+}
+
+function draw() {
+	ctx.save();
+	ctx.fillStyle = style.backgroundColour;
+	ctx.fillRect(0, 0, style.width, style.height);
+	ctx.translate(style.width/2, style.height/2);
+	drawBase();
+	drawStar();
+	ctx.restore();
+}
+
+function drawBase() {
+	ctx.lineWidth = 1;
+	// Axes
+	ctx.strokeStyle = style.baseColour;
+	let axX = displayR*data.posOffset[0],
+			axY = displayR*data.posOffset[1];
+	line(axX, -style.height/2, axX, style.height/2);
+	line(-style.width/2, axY, style.width/2, axY);
+
+	// Base circle/box
+	ctx.strokeStyle = style.starColour;
+	if (data.basesizetype=='outer' ||
+	    data.shapetype=='radii' && !data.fixratio && (data.basesizetype=='inner' || data.basesizetype=='tangent')) {
+		circle(0, 0, displayR);
+	}
+	if (data.basesizetype=='inner' ||
+	    data.shapetype=='radii' && !data.fixratio && data.basesizetype!='tangent') {
+		circle(0, 0, data.innerR*displayR/data.outerR);
+	}
+	if (data.basesizetype=='tangent') {
+		circle(0, 0, data.tangentR*displayR/data.outerR);
+	}
+	if (data.basesizetype=='width' || data.basesizetype=='height') {
+		ctx.save();
+		ctx.rotate(data.rotation);
+		ctx.rect(data.box[3]*displayR, data.box[0]*displayR, (data.box[1]-data.box[3])*displayR, (data.box[2]-data.box[0])*displayR);
+		ctx.stroke();
+		ctx.restore();
+	}
+}
+function drawStar() {
+	data.paths = [];
+	ctx.strokeStyle = style.starColour;
+	ctx.lineJoin = 'round';
+	// Additional lines
+	ctx.lineWidth = 1;
+	if (data.shapetype=='starpoly'&&!data.isStarPoly) { // Inner connections (simplified version of below)
+		let visited = {}, nodeI = 0;
+		ctx.beginPath();
+		for (let i=0, point=0; i<data.points; i++) {
+			if (visited[point]) {
+				point++;
+				ctx.closePath();
+				nodeI = 0;
+			}
+			let angle = data.rotation + point*data.pointAngle;
+			ctx[nodeI==0 ? 'moveTo' : 'lineTo'](displayR*Math.sin(angle), -displayR*Math.cos(angle));
+			visited[point] = true;
+			point = (point + data.density) % data.points;
+			nodeI++;
+		}
+		ctx.closePath();
+		ctx.stroke();
+	} else if (data.basesizetype=='tangent') { // Incircle tangent lines
+		let tangentAngle = Math.PI/2 - data.intAngle/2;
+		let displayTR = data.tangentR*displayR/data.outerR;
+		for (let point=0; point<data.points; point++) {
+			let angle = data.rotation + point*data.pointAngle;
+			line(displayR*Math.sin(angle), -displayR*Math.cos(angle),
+			     displayTR*Math.sin(angle-tangentAngle), -displayTR*Math.cos(angle-tangentAngle));
+			line(displayR*Math.sin(angle), -displayR*Math.cos(angle),
+			     displayTR*Math.sin(angle+tangentAngle), -displayTR*Math.cos(angle+tangentAngle));
+		}
+	}
+	if (data.shapetype=='internal') { // Internal angle arcs
+		for (let point=0; point<data.points; point++) {
+			let angle = data.rotation + point*data.pointAngle;
+			ctx.arc(displayR*Math.sin(angle), -displayR*Math.cos(angle), displayR/5,
+			        Math.PI/2+angle-data.intAngle/2, Math.PI/2+angle+data.intAngle/2);
+		}
+	} else if (data.shapetype=='rhombic') { // Inner radius lines
+		for (let i=0; i<data.points; i++) {
+			let angle = data.rotation + (i+0.5)*data.pointAngle;
+			line(0, 0, displayR*data.ratio*Math.sin(angle), -displayR*data.ratio*Math.cos(angle))
+		}
+	}
+	// Main star
+	ctx.lineWidth = 3;
+	if (data.isStarPoly) { // Polygon or connected star
+		let currentPath = [], visited = {}, nodeI = 0;
+		data.paths.push(currentPath);
+		ctx.beginPath();
+		for (let i=0, point=0; i<data.points; i++) {
+			if (visited[point]) { // Back to start of subpath; start new subpath (density not coprime with number of points)
+				point++;
+				currentPath = [];
+				data.paths.push(currentPath);
+				ctx.closePath();
+				nodeI = 0;
+			}
+			let angle = data.rotation + point*data.pointAngle;
+			addVertexNode(currentPath, angle, null, nodeI);
+			visited[point] = true;
+			point = (point+data.density)%data.points;
+			nodeI++;
+		}
+		ctx.closePath();
+		ctx.stroke();
+	} else { // Concave polygon (alternate outer and inner radii)
+		let radii = [data.outerR, data.innerR];
+		let path = [], nodeI = 0;
+		data.paths.push(path);
+		ctx.beginPath();
+		for (let i=0; i<2*data.points; i++) {
+			let angle = data.rotation + i*data.pointAngle/2;
+			addVertexNode(path, angle, radii[i%2], nodeI);
+			nodeI++;
+		}
+		ctx.closePath();
+		ctx.stroke();
+	}
+	// Display SVG code
+	let d = '', relative = data.coordtype=='relative';
+	let lastPos = [0, 0], lastCommand;
+	for (let i=0; i<data.paths.length; i++) {
+		d += 'M';
+		for (let j=0; j<data.paths[i].length; j++) {
+			let x = coordStr(data.paths[i][j][0]-lastPos[0]),
+			    y = coordStr(data.paths[i][j][1]-lastPos[1]);
+			if (data.paths[i][j-1]&&coordStr(data.paths[i][j-1][0])==coordStr(data.paths[i][j][0])) { // Same X as previous (vertical)
+				d += 'V'+y;
+				lastCommand = 'V';
+			} else if (data.paths[i][j-1]&&coordStr(data.paths[i][j-1][1])==coordStr(data.paths[i][j][1])) { // Same Y as previous (horizontal)
+				d += 'H'+x;
+				lastCommand = 'H';
+			} else { // Diagonal or initial
+				d += (j==0?'':lastCommand=='L'?' ':'L')+x+','+y;
+				lastCommand = 'L';
+			}
+			if (relative) {lastPos = data.paths[i][j];}
+		}
+		d += 'z';
+		if (relative) {lastPos = data.paths[i][0];}
+	}
+	if (relative) {d = d.toLowerCase();}
+	document.getElementById('svg').innerText = d;
+}
+
+function check(id) {
+	document.getElementById(id).checked = true;
+	update();
+}
+
+function toggleDark(bool) {
+	style.dark = bool ?? !style.dark;
+	document.body.className = style.dark ? 'dark' : '';
+	style.backgroundColour = style.dark ? '#444' : '#fff';
+	style.baseColour = style.dark ? '#aaa' : '#808080';
+	style.starColour = style.dark ? '#fff' : '#000';
+	draw();
+}
+</script>
+<style>
+.dark {background-color:#444;color:#eee;}
+#canvas, #controls {float:left;margin:2em;}
+form > ul > li {margin-top:0.5em;}
+ul:not(.bullets) {list-style-type:none;padding-left:0;}
+ul.bullets {padding-left:1em;}
+input[type=number] {width:5em;}
+.inactive {background-color:#ddd;}
+.actual {padding:0 0.3em;font-size:90%;}
+strong {font-size:105%;}
+textarea {width:30em;height:10em;}
+</style>
+</head>
+<body class="dark" onload="start();">
+<canvas id="canvas" width="400" height="400"></canvas>
+<div id="controls">
+<form onchange="update();">
+<ul>
+<li><strong>Points:</strong> <input id="points" type="number" min="2" value="5"/></li>
+<li><strong>Shape:</strong>
+	<ul>
+		<li><input id="polygon" type="radio" name="shapetype" value="polygon"/> <label for="polygon">Polygon</label></li>
+		<li><input id="starpoly" type="radio" name="shapetype" value="starpoly" checked="checked"/> <label for="starpoly">Star polygon,</label>
+			<label for="density">density: <input id="density" type="number" min="1" value="2" onclick="check('starpoly');"/></label>
+			<label for="hull" onclick="check('starpoly');"><input id="hull" type="checkbox"/> Simple</label></li>
+		<li><input id="radii" type="radio" name="shapetype" value="radii"/> <label for="radii">Two radii,</label>
+			<input id="fixratio" type="checkbox"> <label for="fixratio">fix ratio: </label>
+			<input id="ratio" type="number" value="0.5" step="0.1" onclick="check('radii');check('fixratio');"/><span class="actual"></span></li>
+		<li><input id="internal" type="radio" name="shapetype" value="internal">
+			<label for="internal">Internal angle: </label>
+			<input id="intAngle" type="number" value="30" step="any" onclick="check('internal');"/>&deg;<span class="actual"></span></li>
+		<li><input id="rhombic" type="radio" name="shapetype" value="rhombic"> <label for="rhombic">Rhombic</label></li>
+	</ul>
+</li>
+<li><strong>Base size:</strong>
+	<ul>
+		<li><input id="baseOuter" type="radio" name="basesizetype" value="outer" checked="checked"/>
+			<label for="baseOuter">Outer radius: </label>
+			<input id="outerR" type="number" value="1" step="0.1" onclick="check('baseOuter');"/><span class="actual"></span></li>
+		<li><input id="baseInner" type="radio" name="basesizetype" value="inner"/>
+			<label for="baseInner">Inner radius: </label>
+			<input id="innerR" type="number" value="0.5" step="0.1" onclick="check('baseInner');"/><span class="actual"></span></li>
+		<li><input id="baseTangent" type="radio" name="basesizetype" value="tangent"/>
+			<label for="baseTangent">Tangent radius: </label>
+			<input id="tangentR" type="number" value="0.5" step="0.1" onclick="check('baseTangent');"/><span class="actual"></span></li>
+		<li><input id="baseWidth" type="radio" name="basesizetype" value="width"/>
+			<label for="baseWidth">Box width: </label>
+			<input id="width" type="number" value="2" step="0.1" onclick="check('baseWidth');"/><span class="actual"></span></li>
+		<li><input id="baseHeight" type="radio" name="basesizetype" value="height"/>
+			<label for="baseHeight">Box height: </label>
+			<input id="height" type="number" value="2" step="0.1" onclick="check('baseHeight');"/><span class="actual"></span></li>
+	</ul>
+</li>
+<li><strong>Position:</strong> x=<input id="posX" type="number" value="0" step="any"/>, y=<input id="posY" type="number" value="0" step="any"/>
+ <label for="posCentre"><input id="posCentre" type="radio" name="postype" value="centre" checked="checked"/> Centre</label>
+ <label for="posBox"><input id="posBox" type="radio" name="postype" value="box"/> Box centre</label>
+ <label for="posVertex"><input id="posVertex" type="radio" name="postype" value="vertex"/> Vertex</label>
+</li>
+<li><strong>Rotation:</strong> <input id="rotation" type="number" value="0"/>&deg;</li>
+<li><strong>SVG settings:</strong>
+	<ul class="bullets">
+		<li>Coordinates:
+			<input id="coordAbs" type="radio" name="coordtype" value="absolute" checked="checked"/> <label for="coordAbs">Absolute</label>
+		   <input id="coordRel" type="radio" name="coordtype" value="relative"/> <label for="coordRel">Relative</label></li>
+		<li>Decimals: <input id="digits" type="number" min="0" value="6"/></li></li>
+	</ul>
+</ul>
+</form>
+<textarea id="svg"></textarea>
+<button onclick="document.getElementById('svg').select();document.execCommand('copy');">Copy</button>
+</div>
+</body>
+</html>
