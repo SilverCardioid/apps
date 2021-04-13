@@ -1,5 +1,6 @@
 ---
 layout: wiki
+mathjax: true
 ---
 
 # [Star](../)
@@ -9,9 +10,9 @@ A tool for getting the SVG coordinates of arbitrary isotoxal [star polygons](htt
 Parameters with greyed-out boxes are not currently used to control the size or shape of the star; their actual values for the current star are displayed next to the input boxes.
 
 ## Regular stars
-[Regular star polygons](https://en.wikipedia.org/wiki/Polygram_\(geometry\)) or polygrams have one vertex for every point of the star, and are generally self-intersecting. The [density](https://en.wikipedia.org/wiki/Density_\(polytope\)) determines in what order vertices are connected by edges: a density of 1 connects neighbouring points (creating a regular polygon), 2 connects every other vertex, 3 every third, etc. A star with *p* points and density *q* is [notated](https://en.wikipedia.org/wiki/Schl%C3%A4fli_symbol) as {*p*/*q*}.
+[Regular star polygons](https://en.wikipedia.org/wiki/Polygram_\(geometry\)) or polygrams have one vertex for every point of the star, and are generally self-intersecting. The [density](https://en.wikipedia.org/wiki/Density_\(polytope\)) determines in what order vertices are connected by edges: a density of 1 connects neighbouring points (creating a regular polygon), 2 connects every other vertex, 3 every third, etc. A star with $$p$$ points and density $$q$$ is [notated](https://en.wikipedia.org/wiki/Schl%C3%A4fli_symbol) as $${p/q}$$.
 
-If the density and the number of points share a factor (so gcd(*p*,*q*) > 1), the resulting star polygon is technically [degenerate](https://en.wikipedia.org/wiki/Star_polygon#Degenerate_regular_star_polygons), visiting a smaller number of vertices multiple times. In practice, however, this configuration usually refers to a compound of smaller (star) polygons; the applet follows this usage. For example, the nine-pointed star figure {9/3} (more properly notated 3{3}) consists of three overlapping triangles, each rotated so that they cover the same nine vertices as the regular 9-gon and the two "true" 9-grams:
+If the density and the number of points share a factor (so $$gcd(p,q) > 1$$), the resulting star polygon is technically [degenerate](https://en.wikipedia.org/wiki/Star_polygon#Degenerate_regular_star_polygons), visiting a smaller number of vertices multiple times. In practice, however, this configuration usually refers to a compound of smaller (star) polygons; the applet follows this usage. For example, the nine-pointed star figure $${9/3}$$ (more properly notated $$3{3}$$) consists of three overlapping triangles, each rotated so that they cover the same nine vertices as the regular 9-gon and the two "true" 9-grams:
 
 <figure>
 <img src="density.png" alt=""/>
@@ -31,7 +32,7 @@ For regular star polygons, the 'Simple' checkbox creates their simple version, c
 The applet has three more ways to constrain the shape of a simple star, which doesn't have to correspond to a regular star polygon:
 * The two radii, or one radius and the ratio between the two;
 * The [internal angle](https://en.wikipedia.org/wiki/Internal_and_external_angles);
-* A rhombic star polygon (my term for a star whose internal angle matches the angular size of each point, corresponding to an arrangement of`*p* rhombi joined at the centre)
+* A rhombic star polygon (my term for a star whose internal angle matches the angular size of each point, corresponding to an arrangement of *p* rhombi joined at the centre)
 
 ## Size & position
 Besides the two vertex radii, the star's size can be controlled with the tangent radius (the [incircle](https://en.wikipedia.org/wiki/Tangential_polygon) radius or [apothem](https://en.wikipedia.org/wiki/Apothem), using the extensions of the edges for simple stars) or with the size of the [bounding box](https://en.wikipedia.org/wiki/Minimum_bounding_rectangle).
