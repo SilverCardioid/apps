@@ -11,8 +11,8 @@ class: app
 {% seo %}
     <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision}}">
     <script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
-		<!-- page:{{ page.mathjax }} layout:{{ layout.mathjax }} -->
-    {% if page.mathjax == "true" %}
+    {% if page.mathjax == true %}
+			<!-- page:{{ page.mathjax }} layout:{{ layout.mathjax }} -->
       <script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     {% endif %}
     <script src="{{ '/assets/js/respond.js' | relative_url }}"></script>
@@ -49,8 +49,8 @@ class: app
 
     </div>
 
-		<!-- page:{{ page.toc }} layout:{{ layout.toc }} -->
-    {% if page.toc == "true" or layout.toc == "true" %}
+    {% if page.toc == true or layout.toc == true %}
+			<!-- page:{{ page.toc }} layout:{{ layout.toc }} -->
       <script href="{{ '/assets/js/toc.js' | relative_url }}"></script>
     {% endif %}
     {% if site.google_analytics %}
