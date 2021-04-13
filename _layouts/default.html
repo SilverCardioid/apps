@@ -8,11 +8,10 @@ class: app
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-{% seo %}
+    {% seo %}
     <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision}}">
     <script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
     {% if page.mathjax == true %}
-			<!-- page:{{ page.mathjax }} layout:{{ layout.mathjax }} -->
       <script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     {% endif %}
     <script src="{{ '/assets/js/respond.js' | relative_url }}"></script>
@@ -50,8 +49,7 @@ class: app
     </div>
 
     {% if page.toc == true or layout.toc == true %}
-			<!-- page:{{ page.toc }} layout:{{ layout.toc }} -->
-      <script href="{{ '/assets/js/toc.js' | relative_url }}"></script>
+      <script src="/assets/js/toc.js"></script>
     {% endif %}
     {% if site.google_analytics %}
       <script>
