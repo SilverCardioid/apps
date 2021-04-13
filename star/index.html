@@ -2,12 +2,9 @@
 layout: default
 ---
 
-<html>
-<head>
-<meta charset="UTF-8"/>
-<script src="/assets/js/jquery.min.js"></script>
 <script>
 let data = {}, style = {}, displayR, ctx;
+document.body.onload = start;
 
 function start() {
 	const canvas = document.getElementById('canvas');
@@ -384,8 +381,8 @@ input[type=number] {width:5em;}
 strong {font-size:105%;}
 textarea {width:30em;height:10em;}
 </style>
-</head>
-<body class="dark" onload="start();">
+
+<h1><a href="about/">SVG star applet</a></h1>
 <canvas id="canvas" width="400" height="400"></canvas>
 <div id="controls">
 <form onchange="update();">
@@ -443,5 +440,3 @@ textarea {width:30em;height:10em;}
 <textarea id="svg"></textarea>
 <button onclick="document.getElementById('svg').select();document.execCommand('copy');">Copy</button>
 </div>
-</body>
-</html>
