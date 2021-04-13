@@ -371,19 +371,21 @@ function toggleDark(bool) {
 }
 </script>
 <style>
-.light {background-color:#fff;color:#000;}
-#canvas, #controls {float:left;margin:1em;}
+.light {background-color:#fff; color:#000;}
+#canvas, #controls {float:left; margin:1em;}
+#canvas {max-width:100%;}
 form > ul > li {margin-top:0.5em;}
-ul:not(.bullets) {list-style-type:none;padding-left:0;}
+ul:not(.bullets) {list-style-type:none; padding-left:0;}
 ul.bullets {padding-left:1em;}
 input[type=number] {width:5em;}
 .inactive {background-color:#ddd;}
-.actual {padding:0 0.3em;font-size:90%;}
+.actual {padding:0 0.3em; font-size:90%;}
 strong {font-size:105%;}
-textarea {width:30em;height:10em;}
+textarea {width:30em; height:10em; max-width:100%;}
 </style>
 
-<h1><a href="about/">SVG star applet</a></h1>
+<h1>SVG star applet</h1>
+<p>Calculate path coordinates for star polygons. (<a href="about/">documentation</a>)</p>
 <canvas id="canvas" width="400" height="400"></canvas>
 <div id="controls">
 <form onchange="update();">

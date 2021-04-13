@@ -1,5 +1,6 @@
 ---
 layout: wiki
+title: SVG star applet - About
 mathjax: true
 ---
 
