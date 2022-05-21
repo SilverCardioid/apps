@@ -1,0 +1,657 @@
+---
+layout: default
+title: Divisibility & division diagrams
+---
+
+<script>
+'use strict';
+function numbase(n, b) {
+	// Convert a number n to base b
+	return b>1 && b<=36 && b%1==0 ? n.toString(b).toUpperCase() : b==1 ? '1'.repeat(n) : 'NaN';
+}
+function parsebase(s, b) {
+	// Parse a string s as a number in base b
+	return b>1 && b<=36 && b%1==0 ? parseInt(s, b) : b==1 && !/[^1]/.test(s) ? s.length : NaN;
+}
+
+class Diagram {
+	constructor(canvas) {
+		this.canvas = canvas;
+		this.style = {
+			bgColour: [255,255,255],
+			outerColour: [0,0,0],
+			innerColour: [0,68,153], // #049
+			selectColour: [255,0,0],
+			outlineAlpha: 200
+		}
+		this.position = null;
+		this.redraw = true;
+		this.options = {};
+		this.getOptions();
+	}
+
+	getOptions() {
+		let base = Number(document.getElementById('b').value);
+		let mod = Number(document.getElementById('n').value);
+		if (base != this.b || mod != this.nSign*this.n) {
+			this.b = base;
+			this.nSign = Math.sign(mod)
+			this.n = Math.abs(mod);
+			this.calculate();
+		}
+		this.options.quotients = document.getElementById('dq').checked;
+		this.options.round = document.getElementById('dr').checked;
+		this.options.innerBase = document.querySelector('#dbi option:checked').value;
+		this.options.outerBase = document.querySelector('#dbo option:checked').value;
+	}
+
+	point(i) {
+		return p5.Vector.fromAngle(i*2*Math.PI/this.n - Math.PI/2).setMag(this.R);
+	}
+
+	link(i) {
+		return ((this.b*i) % this.n + this.n) % this.n;
+	}
+
+	quotient(i) {
+		return this.nSign*Math.floor(i*this.b/this.n);
+	}
+
+	numberInBase(n, setting) {
+		switch (setting) {
+			case 'decimal':
+				return n.toString(); break;
+			case 'base':
+				return numbase(n, this.b); break;
+			case 'divisor':
+				return numbase(n, this.n); break;
+		}
+	}
+
+	calculate(refSize) {
+		this.R = refSize || Math.min(this.canvas.width, this.canvas.height)/3;
+
+		// Point & arrow data
+		this.pts = Array(Math.ceil(this.n));
+		this.links = Array(Math.ceil(this.n));
+		for (let i = 0; i < this.n; i++) {
+			this.pts[i] = this.point(i);
+			this.links[i] = this.link(i);
+		}
+
+		// Sizes & offsets
+		this.edgeLength = this.n > 1 ? this.pts[0].dist(this.pts[1]) : this.R;
+		this.style.maxPointSize = this.R/20;
+		this.style.maxStrokeWidth = this.R/40;
+		this.style.maxFontSize = this.R/4;
+
+		this.style.strokeWidth = Math.min(this.style.maxStrokeWidth, this.edgeLength/20);
+		this.style.pointSize = Math.min(this.style.maxPointSize, this.edgeLength/8);
+		this.style.ringSize = this.style.pointSize + 1.5*this.style.strokeWidth;
+		this.style.arrowSize = this.style.strokeWidth*2.5;
+		this.style.arrowDist = Math.max(this.edgeLength/3, this.style.ringSize + this.style.strokeWidth + this.style.arrowSize);
+		this.style.arrowOffset = Array(Math.ceil(this.n));
+		this.style.dr = this.style.strokeWidth*0.75*Math.min(2, 1/Math.cos(Math.PI/this.n));
+		this.style.fontSize = Math.min(this.edgeLength/2, this.style.maxFontSize);
+		this.style.smallFontSize = Math.min(0.9*this.style.fontSize, 0.6*this.style.maxFontSize);
+		this.style.textR = this.R + this.style.ringSize + 2*this.style.strokeWidth + this.style.fontSize/2;
+	}
+
+	drawArrow(ctx, size, sw) {
+		ctx.beginShape();
+		ctx.vertex(sw/2, size);
+		ctx.vertex(size, size);
+		ctx.vertex(0, -size);
+		ctx.vertex(-size, size);
+		ctx.vertex(-sw/2, size);
+		ctx.endShape();
+	}
+
+	outline(ctx, shapeFun, args, colour, sw) {
+		ctx.noFill(); ctx.stroke(...this.style.bgColour, this.style.outlineAlpha);
+		ctx.strokeWeight(sw); ctx.strokeCap(ctx.SQUARE);
+		shapeFun.apply(null, args);
+		ctx.fill(...colour); ctx.noStroke();
+		shapeFun.apply(null, args);
+	}
+
+	draw(ctx) {
+		ctx.background(...this.style.bgColour);
+		ctx.translate(this.canvas.width/2, this.canvas.height/2);
+		if (this.n > 1) {
+			// Outer arrows
+			ctx.noFill(); ctx.stroke(...this.style.outerColour); ctx.strokeWeight(this.style.strokeWidth);
+			if (this.options.round) {
+				ctx.circle(0, 0, 2*this.R);
+			} else {
+				ctx.beginShape();
+				for (let i = 0; i < this.n; i++) {
+					let v = this.point(i).setMag(this.R + this.style.dr);
+					ctx.vertex(v.x, v.y);
+				}
+				ctx.endShape(ctx.CLOSE);
+			}
+
+			// Outer arrowheads
+			for (let i = 0; i < this.n; i++) {
+				if ((i - this.links[i] + this.n) % this.n == this.n - 1) {
+					// Offset black arrow if it overlaps a blue arrow along the same edge
+					this.style.arrowOffset[i] = -Math.min(1.5*this.style.arrowSize, this.edgeLength/15);
+				}
+				ctx.push();
+				if (this.options.round) {
+					ctx.rotate(i*2*Math.PI/this.n + Math.PI/2 + (this.style.arrowDist - (this.style.arrowOffset[i]||0))/this.R);
+					ctx.translate(-this.R, 0);
+				} else {
+					ctx.translate(this.point(i).setMag(this.R + this.style.dr));
+					ctx.rotate((i + 0.5)*2*Math.PI/this.n + Math.PI/2);
+					ctx.translate(0, -this.style.arrowDist + (this.style.arrowOffset[i]||0));
+				}
+				this.outline(ctx, this.drawArrow, [ctx, this.style.arrowSize, this.style.strokeWidth], this.style.outerColour, this.style.strokeWidth);
+				ctx.pop();
+			}
+		}
+
+		// Blue lines & rings
+		for (let i = 0; i < this.n; i++) {
+			ctx.noFill(); ctx.stroke(...this.style.innerColour);
+			if (i == this.links[i]) {
+				ctx.circle(this.pts[i].x, this.pts[i].y, 2*this.style.ringSize);
+			} else {
+				let v = this.point(i).setMag(this.R - this.style.dr), vl = this.point(this.links[i]).setMag(this.R - this.style.dr);
+				ctx.line(v.x, v.y, vl.x, vl.y);
+			}
+		}
+
+		for (let i = 0; i < this.n; i++) {
+			// Outer numbers
+			let v = this.point(i).setMag(this.style.textR);
+			ctx.textAlign(ctx.CENTER, ctx.CENTER); ctx.textSize(this.style.fontSize);
+			ctx.fill(...this.style.outerColour); ctx.noStroke();
+			ctx.text(this.numberInBase(i, this.options.outerBase), v.x, v.y);
+
+			// Inner arrowheads
+			let linkDir;
+			if (i != this.links[i]) {
+				linkDir = this.point(this.links[i]).copy().sub(this.point(i));
+				ctx.push();
+				ctx.translate(this.point(i).setMag(this.R - this.style.dr));
+				ctx.rotate(linkDir.heading() + Math.PI/2);
+				ctx.translate(0, -this.style.arrowDist - (this.style.arrowOffset[i]||0));
+				this.outline(ctx, this.drawArrow, [ctx, this.style.arrowSize, this.style.strokeWidth], this.style.innerColour, this.style.strokeWidth);
+				ctx.pop();
+			}
+
+			// Inner numbers
+			if (this.options.quotients && i > 0) {
+				let quot = this.numberInBase(this.quotient(i), this.options.innerBase);
+				ctx.textSize(this.style.smallFontSize);
+				if (i == this.links[i]) {
+					// Put number next to ring
+					v.setMag(this.R - this.style.ringSize - this.style.strokeWidth - this.style.smallFontSize/2);
+				} else {
+					// Put number on either side of arrow
+					let lr = (linkDir.heading() - this.pts[i].heading() + 2*Math.PI) % (2*Math.PI) <= Math.PI;
+					let perp = linkDir.copy().rotate((lr ? 1 : -1)*Math.PI/2).setMag(this.style.strokeWidth + this.style.smallFontSize/2);
+					v.setMag(this.R - this.style.dr).add(linkDir.setMag(this.style.arrowDist - this.style.arrowSize/2)).add(perp);
+				}
+				this.outline(ctx, ctx.text.bind(ctx), [quot, v.x, v.y], this.style.innerColour, this.style.strokeWidth);
+			}
+
+			// Black dots
+			ctx.fill(...this.style.outerColour); ctx.noStroke();
+			ctx.circle(this.pts[i].x, this.pts[i].y, 2*this.style.pointSize);
+		}
+
+		// Selection
+		if (this.position != null) {
+			ctx.fill(...this.style.selectColour);
+			let pos = this.posCoord ?? this.point(this.position);
+			ctx.circle(pos.x, pos.y, 2*this.style.pointSize);
+		}
+
+		/* // Image map test
+		const inR = this.R - this.style.ringSize*3/2;
+		const outR = this.style.textR + this.style.fontSize*3/4;
+		const halfAngle = Math.min(2/5 * 2*Math.PI/this.n, Math.PI/12);
+		ctx.noFill(); ctx.stroke(255,0,0);
+		for (let i = 0; i < this.n; i++) {
+			let anglePos = i*2*Math.PI/this.n;
+			ctx.beginShape();
+			ctx.vertex(inR*Math.sin(anglePos-halfAngle), -inR*Math.cos(anglePos-halfAngle));
+			ctx.vertex(inR*Math.sin(anglePos+halfAngle), -inR*Math.cos(anglePos+halfAngle));
+			ctx.vertex(outR*Math.sin(anglePos+halfAngle), -outR*Math.cos(anglePos+halfAngle));
+			ctx.vertex(outR*Math.sin(anglePos-halfAngle), -outR*Math.cos(anglePos-halfAngle));
+			ctx.endShape(CLOSE);
+		} */
+	}
+}
+
+class Interaction {
+	// Initialisation
+	constructor(diagram) {
+		this.diagram = diagram;
+		this.n = this.diagram.n;
+		this.nSign = this.diagram.nSign;
+		this.b = this.diagram.b;
+		this.active = false;
+		this.animTime = 500;
+		this.keyboard = false;
+		this.autostep = false;
+		this.el = {
+			map: $('map[name=imap]'),
+			mapImg: $('#mapimg'),
+			stepSize: $('#stepsize'),
+			iDigits: $('#idigits'),
+			qDigits: $('#qdigits'),
+			lastIDigit: null,
+			lastQDigit: null,
+			animateDummy: $('<span>')
+		};
+	}
+	imageMap() {
+		const inR = this.diagram.R - this.diagram.style.ringSize*3/2;
+		const outR = this.diagram.style.textR + this.diagram.style.fontSize*3/4;
+		const halfAngle = Math.min(2/5 * 2*Math.PI/this.n, Math.PI/12);
+		const halfWidth = this.diagram.canvas.width/2, halfHeight = this.diagram.canvas.height/2;
+		this.el.map.empty();
+		for (let i = 0; i < this.n; i++) {
+			const anglePos = i*2*Math.PI/this.n;
+			const coords = [
+				halfWidth + inR *Math.sin(anglePos-halfAngle), halfHeight - inR *Math.cos(anglePos-halfAngle),
+				halfWidth + inR *Math.sin(anglePos+halfAngle), halfHeight - inR *Math.cos(anglePos+halfAngle),
+				halfWidth + outR*Math.sin(anglePos+halfAngle), halfHeight - outR*Math.cos(anglePos+halfAngle),
+				halfWidth + outR*Math.sin(anglePos-halfAngle), halfHeight - outR*Math.cos(anglePos-halfAngle)
+			];
+			$('<area>', {
+				shape: 'poly',
+				coords: coords.join(','),
+				click: this.imageMapClick.bind(this, i),
+				title: 'Set position to ' + i
+			}).appendTo(this.el.map);
+		}
+	}
+	toggle(bool) {
+		this.active = bool;
+		if (bool) {
+			$('#interactive').show(200);
+			this.el.mapImg.attr('usemap', '#imap');
+			this.imageMap();
+			this.optionsChanged();
+		} else {
+			$('#interactive').hide(200);
+			this.el.mapImg.attr('usemap', 'none');
+			this.reset();
+		}
+	}
+
+	// Animation
+	clearQueue(finish=true) {
+		if (finish) {
+			this.el.animateDummy.finish(); //.stop(false, true);
+		} else {
+			this.el.animateDummy.stop(true);
+		}
+	}
+	setDummyAngle(a) {
+		this.el.animateDummy.css({right: a*2*Math.PI/this.n});
+	}
+	setDummyPosition(x, y) {
+		if (y == null) { // Single argument: interpret as index
+			let p = this.diagram.point(x);
+			x = p.x;
+			y = p.y;
+		}
+		this.el.animateDummy.css({left: x, top: y});
+	}
+	setPosition(i, duration=500, complete=null, stop=true, round=false) {
+		if (duration > 0 && this.diagram.position != null) {
+			this.diagram.position = i;
+			if (stop) {
+				this.clearQueue();
+			}
+			if (round) {
+				// Arc animation
+				let end = i >= 1 ? i : i + this.n; // Replace 0 by n to fix wrap-around
+				this.el.animateDummy.animate({right: end*2*Math.PI/this.n}, {
+					duration: duration,
+					start: function(){
+						// Set start position
+						let p = this.diagram.point(this.diagram.position);
+						this.diagram.posCoord = {x: p.x, y: p.y};
+						//this.setDummyAngle(this.diagram.position);
+					}.bind(this),
+					step: function(now,tween){
+						// Set dot position
+						if (this.diagram.posCoord) {
+							this.diagram.posCoord.x =  this.diagram.R*Math.sin(now);
+							this.diagram.posCoord.y = -this.diagram.R*Math.cos(now);
+							this.diagram.redraw = true;
+						}
+					}.bind(this),
+					complete: function(){
+						// Set up for next animation
+						this.diagram.posCoord = null;
+						this.setDummyAngle(i); // Change n back to 0
+						this.setDummyPosition(i);
+						if (complete) {complete(i);}
+					}.bind(this)
+				});
+			} else {
+				// Line animation
+				let newPos = this.diagram.point(i);
+				this.el.animateDummy.animate({left: newPos.x, top: newPos.y}, {
+					duration: duration,
+					start: function(){
+						// Set start position
+						this.diagram.posCoord = this.diagram.point(this.diagram.position);
+						this.setDummyPosition(this.diagram.posCoord.x, this.diagram.posCoord.y);
+					}.bind(this),
+					step: function(now,tween){
+						// Set dot position
+						if (this.diagram.posCoord) {
+							this.diagram.posCoord[tween.prop == 'left' ? 'x' : 'y'] = now;
+							this.diagram.redraw = true;
+						}
+					}.bind(this),
+					complete: function(){
+						// Set up for next animation
+						this.diagram.posCoord = null;
+						this.setDummyAngle(i);
+						if (complete) {complete(i);}
+					}.bind(this)
+				});
+			}
+		} else {
+			// No animation
+			this.diagram.position = i;
+			this.diagram.posCoord = null;
+			this.setDummyPosition(i);
+			if (complete) {complete();}
+			this.diagram.redraw = true;
+		}
+	}
+	animDigit() {
+		this.el.lastIDigit.add(this.el.lastQDigit).hide().show(this.animTime);
+	}
+
+	// Actions
+	initDigit(iVal=0, qVal=0) {
+		this.el.iDigits.append(
+			this.el.lastIDigit = $('<span>', {class: 'digit lastdigit', text: iVal, click: this.deleteDigit, title: 'Delete leading digit'})
+		);
+		this.el.qDigits.append(
+			this.el.lastQDigit = $('<span>', {class: 'digit lastdigit', text: qVal, click: this.deleteDigit, title: 'Delete leading digit'})
+		);
+		this.diagram.position = 0;
+		this.setDummyPosition(this.diagram.position);
+		this.animDigit();
+	}
+	step(ev, n=1, duration=null, stop=true) {
+		// Increment input digit
+		if (!this.el.lastQDigit) {
+			this.initDigit(n);
+		} else {
+			let iNum = parsebase(this.el.lastIDigit.text(), this.b);
+			this.el.lastIDigit.text(numbase(iNum + n, this.b));
+		}
+		// Set duration based on number of steps n
+		if (!duration) {
+			duration = this.animTime;
+			if (!isNaN(n)) {duration /= Math.sqrt(n);}
+		}
+		// Start animation
+		for (let i = 0; i < n; i++) {
+			this.setPosition((this.diagram.position + 1) % this.n, duration, (currentPos)=>{
+				// Increment quotient when passing 0
+				if (currentPos < 1) {
+					let qNum = parsebase(this.el.lastQDigit.text(), this.b);
+					this.el.lastQDigit.text(numbase(qNum + 1, this.b));
+				}
+			}, stop && i == 0, this.diagram.options.round); // Execute queued animations on first iteration if stop; add to queue otherwise
+		}
+	}
+	jump(ev) {
+		this.clearQueue();
+		let pos = this.diagram.position ?? 0;
+		// Add digit
+		if (!this.el.lastQDigit) {
+			this.initDigit(0, numbase(this.diagram.quotient(pos), this.b));
+		} else {
+			$('.lastdigit').removeClass('lastdigit');
+			this.el.iDigits.append(
+				this.el.lastIDigit = $('<span>', {class: 'digit lastdigit', text: 0})
+			);
+			this.el.qDigits.append(
+				this.el.lastQDigit = $('<span>', {class: 'digit lastdigit', text: numbase(this.diagram.quotient(pos), this.b)})
+			);
+			this.animDigit();
+		}
+		// Start animation
+		this.setPosition(this.diagram.link(pos), this.animTime, null, false);
+	}
+	insertDot() {
+		$('.dot').remove();
+		if (!this.el.lastQDigit) {this.initDigit();}
+		this.el.iDigits.append($('<span>', {class: 'dot', text: '.'}));
+		this.el.qDigits.append($('<span>', {class: 'dot', text: '.'}));
+	}
+	deleteDigit() {
+		if ($('.digit:first-child').text() != '') {
+			$('.digit:first-child').remove();
+			$('.dot:first-child').remove();
+			if ($('.digit').length == 0) {
+				this.el.lastIDigit = null;
+				this.el.lastQDigit = null;
+			}
+			$('.digit:first-child').click(this.deleteDigit).attr('title', 'Delete leading digit');
+		}
+	}
+	reset() {
+		this.clearQueue(false);
+		this.diagram.position = null;
+		this.el.stepSize.val(1);
+		this.el.iDigits.empty();
+		this.el.qDigits.empty();
+		this.el.lastIDigit = null;
+		this.el.lastQDigit = null;
+		this.diagram.redraw = true;
+	}
+
+	// Events
+	optionsChanged() {
+		if (this.active && (this.n != this.diagram.n || this.nSign != this.diagram.nSign ||
+		                    this.b != this.diagram.b)) {
+			this.n = this.diagram.n;
+			this.b = this.diagram.b;
+			this.reset();
+			this.imageMap();
+		}
+	}
+	imageMapClick(i) {
+		if (!this.el.lastQDigit) {this.initDigit();}
+		this.setPosition(i, false);
+	}
+	keyboardInput(ev) {
+		if (this.active && this.keyboard && ev.target.id != 'stepsize') {
+			this.stepSizeInput(ev);
+		}
+	}
+	stepSizeInput(ev) {
+		const isStepSizeInput = ev.target.id == 'stepsize';
+		if (!isStepSizeInput && ev.target.tagName == 'INPUT' && ev.target.type == 'number') {
+			// Ignore if a textbox is selected
+			return;
+		}
+		// Check for digit input
+		if (ev.key.length == 1) {
+			if (isStepSizeInput) {ev.preventDefault();}
+			let val = parsebase(ev.key, this.b);
+			if (!isNaN(val)) {
+				this.el.stepSize.val(numbase(val, this.b));
+				if (this.autostep) {
+					this.jump();
+					this.step(null, val, null, false);
+					this.el.stepSize.val(1);
+				}
+				return;
+			}
+		}
+		// Check for shortcut keys
+		switch (ev.key ? ev.key.toLowerCase() : ev.keyCode) {
+			case 'enter': case 13: // Fall through to stepping in stepSize input; do nothing otherwise
+				if (!isStepSizeInput) {
+					return;
+				}
+			case 's': case 83: // Step
+				this.step(null, parsebase(this.el.stepSize.val(), this.b));
+				this.el.stepSize.val(1);
+				ev.preventDefault();
+				return;
+			case 'j': case 74: // Jump
+				this.jump();
+				return;
+			case '.': case 190: case ',': case 188: // Dot
+				this.insertDot();
+				return;
+			case 'delete': case 46: // Remove digit (fall through and reset if none left)
+				if (this.el.lastIDigit) {
+					this.deleteDigit();
+					return;
+				}
+			case '-': case 173: // Reset
+				this.reset();
+				return;
+			case 'escape': case 27: // Deselect
+				if (isStepSizeInput) {
+					ev.target.blur();
+				}
+				return;
+			case 'arrowup': case 38: // Increment
+				if (isStepSizeInput) {
+					let val = parsebase(ev.target.value, this.b);
+					ev.target.value = numbase(Math.min(val + 1, this.b - 1), this.b);
+				}
+				return;
+			case 'arrowdown': case 40: // Decrement
+				if (isStepSizeInput) {
+					let val = parsebase(ev.target.value, this.b);
+					ev.target.value = numbase(Math.max(val - 1, 0), this.b);
+				}
+				return;
+		}
+	}
+};
+
+let app = {maxSize: 600};
+
+app.setEventListeners = function() {
+	// Checkboxes
+	$('#di'  ).change(function(ev){app.interaction.toggle(this.checked);}).change();
+	$('#dq'  ).change(function(ev){this.checked ? $('#quotients').show(200) : $('#quotients').hide(200);}).change();
+	$('#anim').change(function(ev){$.fx.off = !this.checked;}).change();
+	$('#keyb').change(function(ev){app.interaction.keyboard = this.checked;
+	                               $('#auto').prop('disabled', !this.checked).parent().toggleClass('disabled', !this.checked);}).change();
+	$('#auto').change(function(ev){app.interaction.autostep = this.checked;}).change();
+
+	// Buttons
+	$('#step'    ).click(function(ev){app.interaction.step(ev);});
+	$('#jump'    ).click(function(ev){app.interaction.jump(ev);});
+	$('#dot'     ).click(function(ev){app.interaction.insertDot(ev);});
+	$('#reset'   ).click(function(ev){app.interaction.reset(ev);});
+	$('#download').click(function(ev){this.href = app.sketch.canvas.toDataURL();});
+
+	// Other
+	$('body'     ).keydown(function(ev){app.interaction.keyboardInput(ev);});
+	$('#stepsize').keydown(function(ev){app.interaction.stepSizeInput(ev);});
+	$('#options' ).change (function(ev){app.diagram.getOptions(); app.interaction.optionsChanged(); app.diagram.redraw = true;});
+}
+
+app.sketch = new p5((ctx)=>{
+	ctx.setup = function() {
+		let size = Math.min(app.maxSize, $('section').width());
+		let canvas = ctx.createCanvas(size, size);
+		$('#canvasDiv').width(size);
+		$(canvas.elt).insertBefore('#mapimg');
+		app.diagram = new Diagram(canvas);
+		app.interaction = new Interaction(app.diagram);
+		app.setEventListeners();
+	}
+	
+	ctx.draw = function() {
+		if (app.diagram.redraw) {
+			app.diagram.draw(ctx);
+			app.diagram.redraw = false;
+		}
+	}
+});
+</script>
+<style>
+#canvasDiv, #controls {float: left; margin: 1em;}
+form {margin-bottom: 1em;}
+input[type=number] {width: 4em;}
+canvas {max-width: 100%; aspect-ratio: 1/1}
+#canvasDiv {position: relative;}
+#mapImg {position: absolute; top: 0; left: 0; width: 100%; height: 100%;}
+area {cursor: pointer;}
+
+#digits td {height: 2em; border-bottom: none; padding: 0; padding-right: 0.5em;}
+#digits td:first-child {width: 4em;}
+.digit {margin: 0.2em; padding: 0.2em; width: 1em;}
+.digit, .dot {display: inline-block; height: 1em; line-height: 1em; text-align: center; vertical-align: middle;}
+.lastdigit {border: 1px solid #8bf;}
+.digit:first-child:not(:empty) {cursor: pointer;}
+.digit:first-child:not(:empty):hover {background:rgba(255, 0, 0, 0.1);}
+
+ul:not(.bullets) {list-style-type:none; padding-left:0; margin-bottom:0.5em;}
+li {margin:0.6em 0;}
+button {margin:0 0.1em; padding:0 0.5em;}
+label {margin:0 0.5em;}
+#step {background-color:#fff; color:#000; font-weight:bold;}
+#stepsize {width: 2em; text-align:center;}
+#jump {background-color:#fff; color:#049; font-weight:bold;}
+.disabled {opacity:0.8;}
+</style>
+
+<h1>Divisibility & division diagrams</h1>
+<p>Visually calculate remainders and quotients. (<a href="about/">documentation</a>)</p>
+
+<div id="canvasDiv" style="position:relative;">
+<map name="imap"></map>
+<img id="mapimg"/>
+</div>
+
+<div id="controls">
+<h2>Diagram</h2>
+<form id="options">
+<ul>
+<li><label title="Set diagram base"><strong>Base:</strong> <input id="b" type="number" min="1" value="10"/></label>
+    <label title="Set diagram modulus"><strong>Divisor:</strong> <input id="n" type="number" min="1" value="7"/></label></li>
+<li><label title="Set base for inner (blue) numbers">Inner base: <select id="dbi" name="innerbase"><option value="decimal">Decimal</option><option value="base" selected="selected">Base</option><option value="divisor">Divisor</option></select></label>
+    <label title="Set base for outer (black) numbers">Outer base: <select id="dbo" name="outerbase"><option value="decimal" selected="selected">Decimal</option><option value="base">Base</option><option value="divisor">Divisor</option></select></label></li>
+<li><label title="Show quotient digits"><input id="dq" type="checkbox" checked="checked" tabindex="-1"/>Quotients</label>
+    <label title="Toggle diagram style"><input id="dr" type="checkbox" tabindex="-1"/>Round</label></li>
+</ul>
+</form>
+
+<h2><label><input id="di" type="checkbox"/> Interactivity</label></h2>
+<form id="interactive" style="display:none;">
+<ul>
+<li><button id="step" type="button" title="Step (black arrow) [S]">Step</button>
+    <button id="jump" type="button" title="Jump (blue arrow) [J]">Jump</button>
+    <button id="dot" type="button" title="Insert radix point [.]">Dot</button>
+		<label title="Set number of steps to take (input digit) [number keys]">Step size: <input id="stepsize" type="text" value="1" autocomplete="off"/></label></li>
+<li><label title="Activate animations"><input id="anim" type="checkbox" checked="checked"/>Animations</label>
+    <label title="Activate keyboard shortcuts"><input id="keyb" type="checkbox"/>Keyboard</label>
+    <label title="Enable automatic step and jump on digit input"><input id="auto" type="checkbox"/>Auto-step</label></li>
+<li><button id="reset" type="button" title="Reset position and quotient [-]">Reset</button></li>
+</ul>
+
+<table id="digits"><tbody>
+<tr id="inputs"><td>Input:</td><td id="idigits"></td></tr>
+<tr id="quotients"><td>Quotient:</td><td id="qdigits"></td></tr>
+</tbody></table>
+</form>
+
+<p><a id="download" download="diagram.png"><button>Download diagram</button></a></p>
+</div>
