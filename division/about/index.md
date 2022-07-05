@@ -54,7 +54,7 @@ The basic procedure for using the diagram is as follows:
     * Move clockwise around the diagram along the number of black arrows corresponding to the current digit ("step").
 * The final position is the remainder.
 
-This basically "builds up" the input number by iteratively multiplying by the base to shift the existing digits over, and then adding a number equal to the next digit. At each step, the dot position is updated acordingly, showing the remainder (mod $$n$$) of the number formed by the digits up until that point.
+This basically "builds up" the input number by iteratively multiplying by the base to shift the existing digits over, and then adding a number equal to the next digit. At each step, the dot position is updated accordingly, showing the remainder (mod $$n$$) of the number formed by the digits up until that point.
 
 <figure>
 <video src="demo_divisibility.mp4" controls="controls"></video>
