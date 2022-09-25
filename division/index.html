@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: app
 title: Divisibility & division diagrams
 ---
 
@@ -588,6 +588,7 @@ app.sketch = new p5((ctx)=>{
 });
 </script>
 <style>
+.appWrapper + * {clear: both;}
 #canvasDiv, #controls {float: left; margin: 1em;}
 form {margin-bottom: 1em;}
 input[type=number] {width: 4em;}
@@ -616,6 +617,8 @@ label {margin:0 0.5em;}
 
 <h1>Divisibility & division diagrams</h1>
 <p>Visually calculate remainders and quotients. (<a href="about/">documentation</a>)</p>
+
+<div class="appWrapper">
 
 <div id="canvasDiv" style="position:relative;">
 <map name="imap"></map>
@@ -655,4 +658,6 @@ label {margin:0 0.5em;}
 </form>
 
 <p><a id="download" download="diagram.png"><button>Download diagram</button></a></p>
+</div>
+
 </div>

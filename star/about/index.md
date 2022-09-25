@@ -1,5 +1,5 @@
 ---
-layout: wiki
+layout: doc
 title: SVG star tool - About
 mathjax: true
 ---

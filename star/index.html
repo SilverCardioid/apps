@@ -1,5 +1,5 @@
 ---
-layout: default
+layout: app
 title: SVG star tool
 ---
 
@@ -372,6 +372,7 @@ function toggleDark(bool) {
 </script>
 <style>
 .light {background-color:#fff; color:#000;}
+.appWrapper + * {clear: both;}
 #canvas, #controls {float:left; margin:1em;}
 #canvas {max-width:100%;}
 form > ul > li {margin-top:0.5em;}
@@ -386,6 +387,8 @@ textarea {width:30em; height:10em; max-width:100%;}
 
 <h1>SVG star tool</h1>
 <p>Calculate path coordinates for star polygons. (<a href="about/">documentation</a>)</p>
+<div class="appWrapper">
+
 <canvas id="canvas" width="400" height="400"></canvas>
 <div id="controls">
 <form onchange="update();">
@@ -442,4 +445,6 @@ textarea {width:30em; height:10em; max-width:100%;}
 </form>
 <textarea id="svg"></textarea>
 <button onclick="document.getElementById('svg').select();document.execCommand('copy');">Copy</button>
+</div>
+
 </div>

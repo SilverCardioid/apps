@@ -1,5 +1,5 @@
 ---
-layout: wiki
+layout: doc
 title: Divisibility & division diagrams - About
 mathjax: true
 ---
