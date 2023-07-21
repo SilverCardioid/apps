@@ -43,6 +43,8 @@ function inputs() {
 	data.rotation = Number(document.getElementById('rotation').value)*Math.PI/180;
 	data.coordtype = document.querySelector('input[name=coordtype]:checked').value;
 	data.digits = Number(document.getElementById('digits').value);
+	data.hv = document.getElementById('hv').checked;
+	data.spaces = document.getElementById('spaces').checked;
 	data.box = null;
 	greyInputs();
 }
@@ -331,29 +333,49 @@ function drawStar() {
 		ctx.stroke();
 	}
 	// Display SVG code
-	let d = '', relative = data.coordtype=='relative';
+	let d = '';
+	let relative = data.coordtype == 'relative';
+	let space = data.spaces ? ' ' : '';
+	let letters = {
+		'm': (relative ? 'm' : 'M') + space,
+		'l': space + (relative ? 'l' : 'L') + space,
+		'h': space + (relative ? 'h' : 'H') + space,
+		'v': space + (relative ? 'v' : 'V') + space,
+		'z': space + 'z'
+	};
+
 	let lastPos = [0, 0], lastCommand;
 	for (let i=0; i<data.paths.length; i++) {
-		d += 'M';
-		for (let j=0; j<data.paths[i].length; j++) {
+		if (i > 0) {d += space;}
+		d += letters.m;
+		for (let j = 0; j < data.paths[i].length; j++) {
 			let x = coordStr(data.paths[i][j][0]-lastPos[0]),
 			    y = coordStr(data.paths[i][j][1]-lastPos[1]);
-			if (data.paths[i][j-1]&&coordStr(data.paths[i][j-1][0])==coordStr(data.paths[i][j][0])) { // Same X as previous (vertical)
-				d += 'V'+y;
+			if (data.hv && data.paths[i][j-1] &&
+			    coordStr(data.paths[i][j-1][0]) == coordStr(data.paths[i][j][0])) {
+				// Same X as previous (vertical)
+				d += letters.v + y;
 				lastCommand = 'V';
-			} else if (data.paths[i][j-1]&&coordStr(data.paths[i][j-1][1])==coordStr(data.paths[i][j][1])) { // Same Y as previous (horizontal)
-				d += 'H'+x;
+			} else if (data.hv && data.paths[i][j-1] &&
+			           coordStr(data.paths[i][j-1][1]) == coordStr(data.paths[i][j][1])) {
+				// Same Y as previous (horizontal)
+				d += letters.h + x;
 				lastCommand = 'H';
-			} else { // Diagonal or initial
-				d += (j==0?'':lastCommand=='L'?' ':'L')+x+','+y;
+			} else {
+				// Diagonal or initial
+				if (j > 0 && lastCommand != 'L') {
+					d += letters.l;
+				} else if (j > 0) {
+					d += ' ';
+				}
+				d += x + ',' + y;
 				lastCommand = 'L';
 			}
 			if (relative) {lastPos = data.paths[i][j];}
 		}
-		d += 'z';
+		d += letters.z;
 		if (relative) {lastPos = data.paths[i][0];}
 	}
-	if (relative) {d = d.toLowerCase();}
 	document.getElementById('svg').innerText = d;
 }
 
@@ -438,7 +460,9 @@ textarea {width:30em; height:10em; max-width:100%;}
 	<ul class="bullets">
 		<li>Coordinates:
 			<input id="coordAbs" type="radio" name="coordtype" value="absolute" checked="checked"/> <label for="coordAbs">Absolute</label>
-		   <input id="coordRel" type="radio" name="coordtype" value="relative"/> <label for="coordRel">Relative</label></li>
+			<input id="coordRel" type="radio" name="coordtype" value="relative"/> <label for="coordRel">Relative</label></li>
+		<li><label for="hv"><input id="hv" type="checkbox" checked="checked"/> Use H/V</label>
+			<label for="spaces"><input id="spaces" type="checkbox"/> Space letters</label></li>
 		<li>Decimals: <input id="digits" type="number" min="0" value="6"/></li></li>
 	</ul>
 </ul>
